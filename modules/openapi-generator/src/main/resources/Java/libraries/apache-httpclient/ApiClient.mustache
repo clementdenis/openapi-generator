@@ -134,7 +134,7 @@ public class ApiClient{{#jsr310}} extends JavaTimeFormatter{{/jsr310}} {
   // Methods that can have a request body
   private static List<String> bodyMethods = Arrays.asList("POST", "PUT", "DELETE", "PATCH");
 
-  public ApiClient(CloseableHttpClient httpClient) {
+  public ApiClient(CloseableHttpClient httpClient, Map<String, Authentication> authMap) {
     objectMapper = new ObjectMapper();
     objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -157,19 +157,60 @@ public class ApiClient{{#jsr310}} extends JavaTimeFormatter{{/jsr310}} {
     setUserAgent("{{#httpUserAgent}}{{{.}}}{{/httpUserAgent}}{{^httpUserAgent}}OpenAPI-Generator/{{{artifactVersion}}}/java{{/httpUserAgent}}");
 
     // Setup authentications (key: authentication name, value: authentication).
-    authentications = new HashMap<String, Authentication>();{{#authMethods}}{{#isBasic}}{{#isBasicBasic}}
-    authentications.put("{{name}}", new HttpBasicAuth());{{/isBasicBasic}}{{#isBasicBearer}}
-    authentications.put("{{name}}", new HttpBearerAuth("{{scheme}}"));{{/isBasicBearer}}{{/isBasic}}{{#isApiKey}}
-    authentications.put("{{name}}", new ApiKeyAuth({{#isKeyInHeader}}"header"{{/isKeyInHeader}}{{^isKeyInHeader}}"query"{{/isKeyInHeader}}, "{{keyParamName}}"));{{/isApiKey}}{{#isOAuth}}
-    authentications.put("{{name}}", new OAuth());{{/isOAuth}}{{/authMethods}}
+    authentications = new HashMap<>();
+    Authentication auth = null;
+    {{#authMethods}}
+    if (authMap != null) {
+      auth = authMap.get("{{name}}");
+    }
+    {{#isBasic}}
+    {{#isBasicBasic}}
+    if (auth instanceof HttpBasicAuth) {
+      authentications.put("{{name}}", auth);
+    } else {
+      authentications.put("{{name}}", new HttpBasicAuth());
+    }
+    {{/isBasicBasic}}
+    {{#isBasicBearer}}
+    if (auth instanceof HttpBearerAuth) {
+      authentications.put("{{name}}", auth);
+    } else {
+      authentications.put("{{name}}", new HttpBearerAuth("{{scheme}}"));
+    }
+    {{/isBasicBearer}}
+    {{#isHttpSignature}}
+    if (auth instanceof HttpSignatureAuth) {
+      authentications.put("{{name}}", auth);
+    }
+    {{/isHttpSignature}}
+    {{/isBasic}}
+    {{#isApiKey}}
+    if (auth instanceof ApiKeyAuth) {
+      authentications.put("{{name}}", auth);
+    } else {
+      authentications.put("{{name}}", new ApiKeyAuth({{#isKeyInHeader}}"header"{{/isKeyInHeader}}{{^isKeyInHeader}}"query"{{/isKeyInHeader}}, "{{keyParamName}}"));
+    }
+    {{/isApiKey}}
+    {{#isOAuth}}
+    if (auth instanceof OAuth) {
+      authentications.put("{{name}}", auth);
+    } else {
+      authentications.put("{{name}}", new OAuth());
+    }
+    {{/isOAuth}}
+    {{/authMethods}}
     // Prevent the authentications from being modified.
     authentications = Collections.unmodifiableMap(authentications);
 
     this.httpClient = httpClient;
   }
 
+  public ApiClient(CloseableHttpClient httpClient) {
+    this(HttpClients.createDefault(), null);
+  }
+
   public ApiClient() {
-    this(HttpClients.createDefault());
+    this(HttpClients.createDefault(), null);
   }
 
   public static DateFormat buildDefaultDateFormat() {
