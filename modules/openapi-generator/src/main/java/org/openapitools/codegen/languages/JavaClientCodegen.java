@@ -1020,6 +1020,10 @@ public class JavaClientCodegen extends AbstractJavaCodegen
                 CodegenModel cm = mo.getModel();
                 boolean addNullableImports = false;
 
+                for (CodegenProperty var : cm.readOnlyVars) {
+                    //read-only vars might be inherited from parent and are not in cm.vars
+                    addNullableImports = isAddNullableImports(cm, addNullableImports, var);
+                }
                 for (CodegenProperty var : cm.vars) {
                     addNullableImports = isAddNullableImports(cm, addNullableImports, var);
                     if (Boolean.TRUE.equals(var.getVendorExtensions().get("x-enum-as-string"))) {
